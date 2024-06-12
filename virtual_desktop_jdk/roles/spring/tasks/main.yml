@@ -1,0 +1,37 @@
+---
+# Run Spring setup on all droplet nodes
+
+- name: Remove sample-app dir if it exists
+  ansible.builtin.file:
+    path: "$HOME/projects/sample-app"
+    state: absent
+    
+- name: Create sample-app dir if it does not exist
+  ansible.builtin.file:
+    path: "$HOME/projects/sample-app"
+    state: directory
+    
+- name: Run spring initializr
+  ansible.builtin.shell: |
+    curl https://start.spring.io/starter.tgz \
+     -d type=maven-project \
+     -d language=java \
+     -d platformVersion=3.3.0 \
+     -d packaging=jar \
+     -d jvmVersion=17 \
+     -d groupId=com.sample.web \
+     -d artifactId=sample-web \
+     -d name=sample-web \
+     -d description=Sample%20Web%20App \
+     -d packageName=com.sample.web \
+     -d dependencies=web | tar -xvzf -
+  args:
+    chdir: "$HOME/projects/sample-app"
+
+
+- name: Perform mvn clean compile
+  ansible.builtin.shell:
+    cmd: mvn clean compile
+    chdir: "$HOME/projects/sample-app"
+
+    

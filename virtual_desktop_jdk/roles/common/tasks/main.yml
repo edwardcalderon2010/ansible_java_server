@@ -1,0 +1,136 @@
+---
+# Run Java setup on all droplet nodes
+- name: Custom alias
+  ansible.builtin.lineinfile:
+    path: "$HOME/.bashrc"
+    regexp: '^(alias la=)(.*)$'
+    line: "\\1'ls -altr'"
+    backrefs: yes
+
+- name: Configure needrestart to not prompt during apt installs
+  block:
+  - name: Remove Needrestart custom conf for disabling prompt
+    ansible.builtin.file:
+      path: /etc/needrestart/conf.d/no_prompt.conf
+      state: absent
+  
+  - name: Create Needrestart custom conf for disabling prompt
+    ansible.builtin.file:
+      path: /etc/needrestart/conf.d/no_prompt.conf
+      state: touch
+  
+  - name: Insert config line for disabling prompt
+    ansible.builtin.lineinfile:
+      path: /etc/needrestart/conf.d/no_prompt.conf
+      line: "$nrconf{restart} = 'a';"
+  become: true
+
+- name: Check for presence of Java
+  ansible.builtin.command: which java 
+  register: is_java_present
+  ignore_errors: true
+
+- name: Install Java 17 JDK
+  become: true
+  ansible.builtin.apt:
+    name: openjdk-17-jdk-headless
+    update_cache: yes
+  when: is_java_present.rc == 1
+
+- name: Check for presence of Maven
+  ansible.builtin.command: which mvn 
+  register: is_mvn_present
+  ignore_errors: true
+
+- name: Install Maven
+  become: true
+  ansible.builtin.apt:
+    name: maven
+    update_cache: yes
+  when: is_mvn_present.rc == 1
+
+- name: Check for presence of Apache2
+  ansible.builtin.command: which apache2
+  register: is_apache2_present
+  ignore_errors: true
+
+- name: Install Apache2
+  become: true
+  ansible.builtin.apt:
+    name: apache2
+    update_cache: yes
+  when: is_apache2_present.rc == 1
+
+- name: Configure JAVA_HOME and PATH env
+  block:
+  - name: Remove pre-existing java profile config
+    ansible.builtin.file:
+      path: /etc/profile.d/java.sh
+      state: absent
+  
+  - name: Create java profile config
+    ansible.builtin.file:
+      path: /etc/profile.d/java.sh
+      state: touch
+  
+  - name: Insert config line for disabling prompt
+    ansible.builtin.blockinfile:
+      path: /etc/profile.d/java.sh
+      append_newline: true
+      prepend_newline: true
+      block: |
+        #!/bin/bash
+        export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))));
+        export PATH=$JAVA_HOME/bin:$PATH
+  become: true
+
+- name: Reload profile
+  ansible.builtin.shell:
+    cmd: . /etc/profile
+    executable: /bin/bash
+
+- name: Reload local bash
+  ansible.builtin.shell:
+    cmd: . "$HOME/.bashrc"
+    executable: /bin/bash
+
+- name: Check for presence of GIT
+  ansible.builtin.command: which git
+  register: is_git_present
+  ignore_errors: true
+
+- name: Install GIT
+  become: true
+  ansible.builtin.apt:
+    name: git-all
+    update_cache: yes
+  when: is_git_present.rc == 1
+
+- name: Clone, Build, Install Spring CLI
+  block:
+  - name: Create project directory
+    ansible.builtin.file:
+      path: "$HOME/projects"
+      state: directory
+    register: created_projects_dir
+
+  - name: Clone Spring CLI Repo 
+    ansible.builtin.shell:
+      cmd: git clone https://github.com/spring-projects/spring-cli.git
+      chdir: "$HOME/projects"
+    when: created_projects_dir.changed == true
+
+  - name: Determine latest tag
+    ansible.builtin.shell:
+      cmd: git tag --list | grep "^v[0-9]\+" | sort | tail -n1
+      chdir: "$HOME/projects/spring-cli"
+    register: git_latest_tag
+
+  - name: Verify Latest Tag
+    ansible.builtin.debug:
+      msg: Got Tag; {{ git_latest_tag.stdout }}
+
+  - name: Checkout latest tag as new branch
+    ansible.builtin.shell:
+      cmd: git checkout -B local-latest '{{ git_latest_tag.stdout }}'
+      chdir: "$HOME/projects/spring-cli"

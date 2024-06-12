@@ -1,0 +1,84 @@
+---
+# Run common setup on all droplet nodes
+- name: Run apt update
+  ansible.builtin.apt:
+    name: curl
+    update_cache: yes
+
+
+- name: Configure default editor
+  ansible.builtin.command:
+    argv:
+      - ln
+      - -s
+      - -f
+      - /usr/bin/vim.basic
+      - /etc/alternatives/editor
+
+- name: Enable passwordless sudo for admin
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    state: present
+    regexp: '^%ADMIN ALL='
+    line: '%ADMIN ALL=(ALL) NOPASSWD: ALL'
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Create default admin user for ansible access
+  ansible.builtin.user:
+    name: agent_topaz
+    shell: /bin/bash
+    groups: admin
+    append: yes
+    create_home: yes
+
+- name: Transfer/create authorized_keys file
+  ansible.posix.authorized_key:
+    user: agent_topaz
+    state: present
+    key: "{{ lookup('file', '/home/ecal/.ssh/id_oceans2.pub') }}"
+    manage_dir: true
+
+- name: Reconfigure default sshd port
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^(#)*(Port\s)(\d+)$'
+    line: "\\g<2>{{ sshd_config_1 }}"
+    backrefs: yes
+
+- name: Disable Root SSH Login
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^(#)*(PermitRootLogin\s)(\w+)$'
+    line: "\\g<2>no"
+    backrefs: yes
+
+- name: Disable SSH Password Auth
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^(#)*(PasswordAuthentication\s)(\w+)$'
+    line: "\\g<2>no"
+    backrefs: yes
+
+- name: Enfore SSH PublicKey Auth
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^(#)*(PubkeyAuthentication\s)(\w+)$'
+    line: "\\g<2>yes"
+    backrefs: yes
+
+- name: Restart service SSHD
+  ansible.builtin.service:
+    name: ssh
+    state: restarted
+
+- name: Allow new SSH port via ufw
+  ansible.builtin.command: "ufw allow {{sshd_config_1}}"
+
+#Command may disrupt existing ssh connections. Proceed with operation (y|n)? n
+- name: Enable firewall
+  ansible.builtin.expect:
+    command: ufw enable
+    responses:
+      "^(.*) Proceed with operation \\(y\\|n\\)\\?" :
+        - "y"
+

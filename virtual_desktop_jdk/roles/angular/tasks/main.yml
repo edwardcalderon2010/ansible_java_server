@@ -1,0 +1,174 @@
+---
+# Run Angular setup on all droplet nodes
+
+
+- name: Add eirslett plugin to maven pom.xml
+  ansible.builtin.blockinfile:
+    path: "$HOME/projects/sample-app/pom.xml"
+    insertbefore: '^\s+</plugins>'
+    marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
+    block: |
+        <PLACEHOLDER>
+                                <plugin>
+                                        <groupId>com.github.eirslett</groupId>
+                                        <artifactId>frontend-maven-plugin</artifactId>
+                                        <version>1.12.0</version>
+                                        <configuration>
+                                                <nodeVersion>v18.19.1</nodeVersion>
+                                        </configuration>
+                                        <executions>
+                                                <execution>
+                                                        <id>install-npm</id>
+                                                        <goals>
+                                                                <goal>install-node-and-npm</goal>
+                                                        </goals>
+                                                </execution>
+                                        </executions>
+                                </plugin>
+        </PLACEHOLDER>
+
+- name: Remove ansible line markers
+  ansible.builtin.lineinfile:
+    path: "$HOME/projects/sample-app/pom.xml"
+    state: absent
+    regexp: '^.*ANSIBLE MANAGED BLOCK'
+
+- name: Remove placeholder line markers
+  ansible.builtin.lineinfile:
+    path: "$HOME/projects/sample-app/pom.xml"
+    state: absent
+    regexp: '^.*PLACEHOLDER'
+
+- name: Perform mvn clean compile
+  ansible.builtin.shell:
+    cmd: mvn clean compile
+    chdir: "$HOME/projects/sample-app"
+
+- name: Remove local npm exe if exists
+  ansible.builtin.file:
+    path: "$HOME/projects/sample-app/npm"
+    state: absent
+
+- name: Create local npm exe
+  ansible.builtin.file:
+    path: "$HOME/projects/sample-app/npm"
+    state: touch
+
+- name: Create local npm exe
+  ansible.builtin.blockinfile:
+    path: "$HOME/projects/sample-app/npm"
+    prepend_newline: true
+    mode: +x
+    block: |
+        #!/bin/sh
+        cd $(dirname $0)
+        PATH="$PWD/node/":$PATH
+        node "node/node_modules/npm/bin/npm-cli.js" "$@"
+
+- name: Install angular CLI
+  ansible.builtin.shell:
+    cmd: ./npm install @angular/cli
+    chdir: "$HOME/projects/sample-app"
+    executable: /bin/bash
+
+- name: Remove local ng exe if exists
+  ansible.builtin.file:
+    path: "$HOME/projects/sample-app/ng"
+    state: absent
+
+- name: Create local ng exe
+  ansible.builtin.file:
+    path: "$HOME/projects/sample-app/ng"
+    state: touch
+
+- name: Create local ng exe
+  ansible.builtin.blockinfile:
+    path: "$HOME/projects/sample-app/ng"
+    prepend_newline: true
+    mode: +x
+    block: |
+        #!/bin/sh
+        cd $(dirname $0)
+        PATH="$PWD/node/":"$PWD":$PATH
+        node_modules/@angular/cli/bin/ng.js "$@"
+
+- name: Create new angular project
+  ansible.builtin.shell:
+    cmd: ./ng new client --minimal --no-standalone --style=scss --defaults=true
+    chdir: "$HOME/projects/sample-app"
+    executable: /bin/bash
+
+- name: Append .gitignore contents to spring project
+  ansible.builtin.shell:
+    cmd: cat client/.gitignore >> .gitignore
+    chdir: "$HOME/projects/sample-app"
+
+- name: Delete unnecessary client files
+  ansible.builtin.shell:
+    cmd: rm -rf client/node* client/.gitignore client/.git client/.vscode
+    chdir: "$HOME/projects/sample-app"
+
+- name: Transfer all other client files
+  ansible.builtin.shell:
+    cmd: cp -rf client/* .
+    chdir: "$HOME/projects/sample-app"
+
+- name: Remove client dir
+  ansible.builtin.shell:
+    cmd: rm -rf client
+    chdir: "$HOME/projects/sample-app"
+
+- name: Remove outputPath line from angular.json
+  ansible.builtin.lineinfile:
+    path: "$HOME/projects/sample-app/angular.json"
+    regexp: '^\s+"outputPath":.*$'
+    state: absent
+
+- name: Insert spring-specific build config
+  ansible.builtin.blockinfile:
+    path: "$HOME/projects/sample-app/angular.json"
+    marker: ""
+    insertafter: '^\s+"options":.*$'
+    block: |
+      "outputPath": {
+        "base":"target/classes/static",
+        "browser":""
+      },
+
+- name: Add npm build executions to eirslett plugin
+  ansible.builtin.blockinfile:
+    path: "$HOME/projects/sample-app/pom.xml"
+    insertbefore: '^\s+</executions>'
+    marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
+    block: |
+        <PLACEHOLDER>
+                                        <execution>
+                                                <id>npm-install</id>
+                                                <goals>
+                                                        <goal>npm</goal>
+                                                </goals>
+                                        </execution>
+                                        <execution>
+                                                <id>npm-build</id>
+                                                <goals>
+                                                        <goal>npm</goal>
+                                                </goals>
+                                                <configuration>
+                                                        <arguments>run-script build</arguments>
+                                                </configuration>
+                                        </execution>
+        </PLACEHOLDER>
+
+- name: Remove ansible line markers
+  ansible.builtin.lineinfile:
+    path: "$HOME/projects/sample-app/pom.xml"
+    state: absent
+    regexp: '^.*ANSIBLE MANAGED BLOCK'
+
+- name: Remove placeholder line markers
+  ansible.builtin.lineinfile:
+    path: "$HOME/projects/sample-app/pom.xml"
+    state: absent
+    regexp: '^.*PLACEHOLDER'
+
+

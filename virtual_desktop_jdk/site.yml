@@ -1,0 +1,15 @@
+---
+# Install Java Dev Environment
+
+- name: Install Java JDK, Maven, GIT, and Docker
+  hosts: oceans_topaz
+  vars:
+    ansible_port: 3346
+    ansible_user: agent_topaz
+    
+  
+  roles:
+    - role: common
+    - role: spring
+    - role: angular
+    - role: launch

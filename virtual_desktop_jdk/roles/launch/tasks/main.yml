@@ -1,0 +1,17 @@
+---
+# Run launsh tasks on all droplet nodes
+
+- name: Perform mvn clean package
+  ansible.builtin.shell:
+    cmd: mvn clean package
+    chdir: "$HOME/projects/sample-app"
+
+- name: Start Spring Boot App
+  ansible.builtin.command:
+    cmd: "mvn spring-boot:run -Dspring-boot.run.arguments=\"--server.port=8090\""
+    chdir: "$HOME/projects/sample-app"
+  async: 45
+  poll: 5
+  ignore_errors: true
+
+

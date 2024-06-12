@@ -1,0 +1,14 @@
+---
+# Setup Droplet Nodes from Scratch
+
+- name: Root admin tasks; Create ansible admin user, install SSH key and change default SSH port
+  hosts: oceans_topaz
+  remote_user: root
+  vars:
+    ansible_port: 22
+    ansible_user: root
+    sshd_config_1: 3346
+    
+  
+  roles:
+    - common
