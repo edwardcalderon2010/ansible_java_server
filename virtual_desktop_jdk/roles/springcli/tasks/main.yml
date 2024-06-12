@@ -1,0 +1,24 @@
+---
+# Clone and build Spring CLI on all droplet nodes
+- name: Clone, Build, Install Spring CLI
+  block:
+  - name: Clone Spring CLI Repo 
+    ansible.builtin.shell:
+      cmd: git clone https://github.com/spring-projects/spring-cli.git
+      chdir: "$HOME/projects"
+    when: created_projects_dir.changed == true
+
+  - name: Determine latest tag
+    ansible.builtin.shell:
+      cmd: git tag --list | grep "^v[0-9]\+" | sort | tail -n1
+      chdir: "$HOME/projects/spring-cli"
+    register: git_latest_tag
+
+  - name: Verify Latest Tag
+    ansible.builtin.debug:
+      msg: Got Tag; {{ git_latest_tag.stdout }}
+
+  - name: Checkout latest tag as new branch
+    ansible.builtin.shell:
+      cmd: git checkout -B local-latest '{{ git_latest_tag.stdout }}'
+      chdir: "$HOME/projects/spring-cli"

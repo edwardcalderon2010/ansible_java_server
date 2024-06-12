@@ -49,18 +49,6 @@
     update_cache: yes
   when: is_mvn_present.rc == 1
 
-- name: Check for presence of Apache2
-  ansible.builtin.command: which apache2
-  register: is_apache2_present
-  ignore_errors: true
-
-- name: Install Apache2
-  become: true
-  ansible.builtin.apt:
-    name: apache2
-    update_cache: yes
-  when: is_apache2_present.rc == 1
-
 - name: Configure JAVA_HOME and PATH env
   block:
   - name: Remove pre-existing java profile config
@@ -106,31 +94,8 @@
     update_cache: yes
   when: is_git_present.rc == 1
 
-- name: Clone, Build, Install Spring CLI
-  block:
-  - name: Create project directory
-    ansible.builtin.file:
-      path: "$HOME/projects"
-      state: directory
-    register: created_projects_dir
-
-  - name: Clone Spring CLI Repo 
-    ansible.builtin.shell:
-      cmd: git clone https://github.com/spring-projects/spring-cli.git
-      chdir: "$HOME/projects"
-    when: created_projects_dir.changed == true
-
-  - name: Determine latest tag
-    ansible.builtin.shell:
-      cmd: git tag --list | grep "^v[0-9]\+" | sort | tail -n1
-      chdir: "$HOME/projects/spring-cli"
-    register: git_latest_tag
-
-  - name: Verify Latest Tag
-    ansible.builtin.debug:
-      msg: Got Tag; {{ git_latest_tag.stdout }}
-
-  - name: Checkout latest tag as new branch
-    ansible.builtin.shell:
-      cmd: git checkout -B local-latest '{{ git_latest_tag.stdout }}'
-      chdir: "$HOME/projects/spring-cli"
+- name: Create project directory
+  ansible.builtin.file:
+    path: "$HOME/projects"
+    state: directory
+  register: created_projects_dir

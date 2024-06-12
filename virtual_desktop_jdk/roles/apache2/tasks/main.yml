@@ -1,0 +1,13 @@
+---
+# Run Apache2 setup on all droplet nodes
+- name: Check for presence of Apache2
+  ansible.builtin.command: which apache2
+  register: is_apache2_present
+  ignore_errors: true
+
+- name: Install Apache2
+  become: true
+  ansible.builtin.apt:
+    name: apache2
+    update_cache: yes
+  when: is_apache2_present.rc == 1
